@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="InsightStreamAI.csproj" />
+  <Project Path="Domain/InsightStreamAI.Domain.csproj" />
+  <Project Path="Application/InsightStreamAI.Application.csproj" />
+  <Project Path="Infrastructure/InsightStreamAI.Infrastructure.csproj" />
+</Solution>

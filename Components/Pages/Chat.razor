@@ -1,0 +1,497 @@
+@page "/chat"
+@using InsightStreamAI.Domain.Entities
+@using InsightStreamAI.Application.Services
+@using InsightStreamAI.Application.Repositories
+@using InsightStreamAI.Application.Common
+@using System.Text
+@using Markdig
+@inject ISemanticKernelService SKService
+@inject IChatRepository ChatRepository
+@inject IJSRuntime JSRuntime
+
+<PageTitle>InsightStream AI - Agent Chat</PageTitle>
+
+<div class="chat-layout animate-fade">
+    <!-- Conversation Sidebar -->
+    <div class="chat-sidebar glass-card">
+        <button class="btn-premium w-100 mb-3" @onclick="CreateNewConversation" disabled="@isSending">
+            <span>+</span> New Chat
+        </button>
+        
+        <div class="conversation-list">
+            @if (conversations == null)
+            {
+                <p class="text-muted text-center mt-3">Loading chats...</p>
+            }
+            else if (conversations.Count == 0)
+            {
+                <p class="text-muted text-center mt-3">No past chats</p>
+            }
+            else
+            {
+                @foreach (var conv in conversations)
+                {
+                    <div class="conversation-item @(selectedConversation?.Id == conv.Id ? "active" : "")"
+                         @onclick="() => SelectConversation(conv)">
+                        <span class="chat-icon">💬</span>
+                        <span class="chat-title" title="@conv.Title">@conv.Title</span>
+                        <button class="btn-delete-chat" @onclick:stopPropagation="true" @onclick="() => DeleteConversation(conv.Id)">×</button>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <!-- Active Chat Window -->
+    <div class="chat-window glass-card">
+        @if (selectedConversation == null)
+        {
+            <div class="empty-chat-state">
+                <span class="glow-symbol">✦</span>
+                <h2>InsightStream AI Agent</h2>
+                <p class="text-muted">Select an existing conversation or start a new one to query your indexed documents.</p>
+                <button class="btn-premium mt-3" @onclick="CreateNewConversation">Start New Chat</button>
+            </div>
+        }
+        else
+        {
+            <div class="chat-header">
+                <div class="chat-header-info">
+                    <h3>@selectedConversation.Title</h3>
+                    <span class="chat-status text-muted">Connected to local knowledge library</span>
+                </div>
+            </div>
+            
+            <div class="chat-messages" id="chatMessages">
+                @foreach (var msg in messages)
+                {
+                    <div class="message @(msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "message-user" : "message-assistant")">
+                        <div class="message-sender">@(msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "You" : "InsightStream")</div>
+                        <div class="message-content">
+                            @((MarkupString)FormatMarkdown(msg.Content))
+                        </div>
+                    </div>
+                }
+                
+                @if (isSending && currentAssistantChunk.Length > 0)
+                {
+                    <div class="message message-assistant streaming-cursor">
+                        <div class="message-sender">InsightStream</div>
+                        <div class="message-content">
+                            @((MarkupString)FormatMarkdown(currentAssistantChunk.ToString()))
+                        </div>
+                    </div>
+                }
+                else if (isSending && currentAssistantChunk.Length == 0)
+                {
+                    <div class="message message-assistant thinking-loader">
+                        <div class="message-sender">InsightStream</div>
+                        <div class="message-content">
+                            <span class="dot">.</span><span class="dot">.</span><span class="dot">.</span>
+                        </div>
+                    </div>
+                }
+            </div>
+            
+            <div class="chat-input-area">
+                <textarea @bind="userPrompt" 
+                          @bind:event="oninput" 
+                          @onkeydown="OnKeyDown"
+                          placeholder="Type a message or query... (Press Enter to Send)"
+                          disabled="@isSending"
+                          class="chat-textarea"
+                          rows="2"></textarea>
+                <button class="btn-premium" @onclick="SendMessage" disabled="@(isSending || string.IsNullOrWhiteSpace(userPrompt))">
+                    Send
+                </button>
+            </div>
+        }
+    </div>
+</div>
+
+<style>
+    .chat-layout {
+        display: flex;
+        gap: 1.5rem;
+        height: calc(100vh - 4.5rem);
+        padding-bottom: 0.5rem;
+    }
+    
+    .chat-sidebar {
+        width: 280px;
+        display: flex;
+        flex-direction: column;
+        padding: 1.25rem;
+        flex-shrink: 0;
+        background: var(--bg-sidebar);
+    }
+    
+    .conversation-list {
+        flex: 1;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .conversation-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 0.75rem;
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        position: relative;
+        border: 1px solid transparent;
+        color: var(--text-muted);
+    }
+    
+    .conversation-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+        color: #ffffff;
+    }
+    
+    .conversation-item.active {
+        background: rgba(0, 242, 254, 0.05);
+        border-color: rgba(0, 242, 254, 0.15);
+        color: var(--primary);
+    }
+    
+    .chat-title {
+        font-size: 0.9rem;
+        font-weight: 500;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex: 1;
+        padding-right: 1.5rem;
+    }
+    
+    .btn-delete-chat {
+        position: absolute;
+        right: 0.5rem;
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 1.25rem;
+        cursor: pointer;
+        opacity: 0;
+        transition: opacity 0.2s ease, color 0.2s ease;
+        line-height: 1;
+    }
+    
+    .conversation-item:hover .btn-delete-chat {
+        opacity: 1;
+    }
+    
+    .btn-delete-chat:hover {
+        color: #ef4444;
+    }
+    
+    .chat-window {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    }
+    
+    .empty-chat-state {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        padding: 2rem;
+    }
+    
+    .glow-symbol {
+        font-size: 3.5rem;
+        color: var(--primary);
+        text-shadow: 0 0 15px var(--primary);
+        margin-bottom: 1.5rem;
+    }
+    
+    .chat-header {
+        padding: 1.25rem 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+        background: rgba(255, 255, 255, 0.01);
+    }
+    
+    .chat-header h3 {
+        margin: 0;
+        font-size: 1.15rem;
+    }
+    
+    .chat-status {
+        font-size: 0.8rem;
+    }
+    
+    .chat-messages {
+        flex: 1;
+        overflow-y: auto;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+        background: rgba(0, 0, 0, 0.05);
+    }
+    
+    .message-sender {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        opacity: 0.75;
+        margin-bottom: 0.35rem;
+        font-weight: 600;
+    }
+    
+    .chat-input-area {
+        padding: 1.25rem 1.5rem;
+        border-top: 1px solid var(--border-color);
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+        background: rgba(255, 255, 255, 0.01);
+    }
+    
+    .chat-textarea {
+        flex: 1;
+        background: rgba(255, 255, 255, 0.03);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.75rem 1rem;
+        color: #ffffff;
+        font-family: var(--font-body);
+        font-size: 0.95rem;
+        resize: none;
+        transition: all 0.2s ease;
+    }
+    
+    .chat-textarea:focus {
+        outline: none;
+        border-color: var(--primary);
+        background: rgba(255, 255, 255, 0.06);
+        box-shadow: 0 0 10px rgba(0, 242, 254, 0.1);
+    }
+    
+    .inline-code {
+        background: rgba(255, 255, 255, 0.1);
+        padding: 0.15rem 0.35rem;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.85rem;
+        color: var(--primary);
+    }
+    
+    .code-block {
+        background: rgba(0, 0, 0, 0.3);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-family: monospace;
+        font-size: 0.85rem;
+        overflow-x: auto;
+        color: #e2e8f0;
+        margin: 0.5rem 0;
+    }
+    
+    /* Thinking indicator dots */
+    .thinking-loader .dot {
+        font-size: 1.5rem;
+        line-height: 0.5;
+        animation: wave 1.2s infinite;
+        display: inline-block;
+    }
+    
+    .thinking-loader .dot:nth-child(2) { animation-delay: 0.2s; }
+    .thinking-loader .dot:nth-child(3) { animation-delay: 0.4s; }
+    
+    @@keyframes wave {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    
+    @@keyframes fadeIn {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fade {
+        animation: fadeIn 0.4s ease-out forwards;
+    }
+    
+    .w-100 { width: 100%; }
+    .mb-3 { margin-bottom: 1rem; }
+    .mt-3 { margin-top: 1rem; }
+</style>
+
+@code {
+    private List<ChatConversation>? conversations = null;
+    private ChatConversation? selectedConversation = null;
+    private List<ChatMessage> messages = new();
+    private string userPrompt = string.Empty;
+    private bool isSending = false;
+    private StringBuilder currentAssistantChunk = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadConversations();
+    }
+
+    private async Task LoadConversations()
+    {
+        conversations = await ChatRepository.GetAllConversationsAsync();
+    }
+
+    private async Task CreateNewConversation()
+    {
+        var conversation = new ChatConversation
+        {
+            Title = $"{Constants.Prompts.DefaultTitlePrefix} {DateTime.Now:MM/dd HH:mm}"
+        };
+        await ChatRepository.AddConversationAsync(conversation);
+        
+        await LoadConversations();
+        await SelectConversation(conversation);
+    }
+
+    private async Task SelectConversation(ChatConversation conversation)
+    {
+        selectedConversation = conversation;
+        messages = await ChatRepository.GetMessagesByConversationIdAsync(conversation.Id);
+        
+        currentAssistantChunk.Clear();
+        StateHasChanged();
+        await Task.Delay(10);
+        await ScrollToBottom();
+    }
+
+    private async Task DeleteConversation(Guid id)
+    {
+        await ChatRepository.DeleteConversationAsync(id);
+        
+        if (selectedConversation?.Id == id)
+        {
+            selectedConversation = null;
+            messages.Clear();
+        }
+        
+        await LoadConversations();
+    }
+
+    private async Task SendMessage()
+    {
+        if (string.IsNullOrWhiteSpace(userPrompt) || selectedConversation == null || isSending)
+        {
+            return;
+        }
+
+        var prompt = userPrompt.Trim();
+        userPrompt = string.Empty;
+        isSending = true;
+        currentAssistantChunk.Clear();
+        StateHasChanged();
+
+        // 1. Create and save user message
+        var userMessage = new ChatMessage
+        {
+            ConversationId = selectedConversation.Id,
+            Role = "user",
+            Content = prompt,
+            CreatedAt = DateTime.UtcNow
+        };
+        await ChatRepository.AddMessageAsync(userMessage);
+        messages.Add(userMessage);
+        
+        // Update conversation title if it was default
+        if (selectedConversation.Title.StartsWith(Constants.Prompts.DefaultTitlePrefix))
+        {
+            selectedConversation.Title = prompt.Length > 25 ? prompt.Substring(0, 25) + "..." : prompt;
+            await ChatRepository.UpdateConversationTitleAsync(selectedConversation.Id, selectedConversation.Title);
+        }
+        
+        StateHasChanged();
+        await ScrollToBottom();
+
+        // 2. Fetch stream from SemanticKernelService
+        try
+        {
+            var stream = SKService.GetStreamingResponseAsync(messages, prompt);
+            
+            await foreach (var chunk in stream)
+            {
+                currentAssistantChunk.Append(chunk);
+                StateHasChanged();
+                await ScrollToBottom();
+            }
+
+            // 3. Save assistant response to DB
+            var assistantResponse = currentAssistantChunk.ToString();
+            if (!string.IsNullOrEmpty(assistantResponse))
+            {
+                var assistantMessage = new ChatMessage
+                {
+                    ConversationId = selectedConversation.Id,
+                    Role = "assistant",
+                    Content = assistantResponse,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await ChatRepository.AddMessageAsync(assistantMessage);
+                messages.Add(assistantMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            var errorMessage = $"Error during streaming response: {ex.Message}";
+            var errorMsgObj = new ChatMessage
+            {
+                ConversationId = selectedConversation.Id,
+                Role = "assistant",
+                Content = errorMessage,
+                CreatedAt = DateTime.UtcNow
+            };
+            await ChatRepository.AddMessageAsync(errorMsgObj);
+            messages.Add(errorMsgObj);
+        }
+        finally
+        {
+            isSending = false;
+            currentAssistantChunk.Clear();
+            StateHasChanged();
+            await ScrollToBottom();
+            await LoadConversations(); // Refresh titles
+        }
+    }
+
+    private async Task OnKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter" && !e.ShiftKey)
+        {
+            await SendMessage();
+        }
+    }
+
+    private async Task ScrollToBottom()
+    {
+        try
+        {
+            await JSRuntime.InvokeVoidAsync("scrollToBottom", "chatMessages");
+        }
+        catch { }
+    }
+
+    private string FormatMarkdown(string text)
+    {
+        if (string.IsNullOrEmpty(text)) return string.Empty;
+
+        // Render Markdown safely using Markdig with DisableHtml to prevent XSS
+        var pipeline = new MarkdownPipelineBuilder()
+            .UseAdvancedExtensions()
+            .DisableHtml()
+            .Build();
+
+        return Markdown.ToHtml(text, pipeline);
+    }
+}

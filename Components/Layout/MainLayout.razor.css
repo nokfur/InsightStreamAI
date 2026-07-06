@@ -1,0 +1,141 @@
+.page {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    width: 100vw;
+    background-color: var(--bg-app);
+}
+
+main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+}
+
+.sidebar {
+    background: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+.navbar-brand-premium {
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    letter-spacing: 0.05em;
+    padding: 1.5rem 1rem;
+}
+
+.logo-glow {
+    color: var(--primary);
+    text-shadow: 0 0 10px var(--primary);
+    font-size: 1.4rem;
+}
+
+.nav-link-premium {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 0.8rem 1.25rem;
+    color: var(--text-muted);
+    font-weight: 500;
+    font-size: 0.95rem;
+    border-radius: 8px;
+    margin: 0.25rem 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.nav-link-premium:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.nav-link-premium.active {
+    color: var(--primary);
+    background: rgba(0, 242, 254, 0.06);
+    font-weight: 600;
+    box-shadow: inset 3px 0 0 var(--primary);
+}
+
+.nav-icon {
+    font-size: 1.1rem;
+    opacity: 0.8;
+}
+
+.content-pane {
+    flex: 1;
+    overflow-y: auto;
+    padding: 2rem;
+    background-image: radial-gradient(at 0% 0%, rgba(127, 0, 255, 0.05) 0, transparent 50%),
+                      radial-gradient(at 50% 0%, rgba(0, 242, 254, 0.03) 0, transparent 50%);
+}
+
+#blazor-error-ui {
+    background: #1e1b1b;
+    border-top: 2px solid var(--accent);
+    color: var(--text-main);
+    bottom: 0;
+    box-shadow: 0 -4px 15px rgba(0, 0, 0, 0.5);
+    display: none;
+    left: 0;
+    padding: 0.8rem 1.5rem;
+    position: fixed;
+    width: 100%;
+    z-index: 1000;
+    font-size: 0.9rem;
+}
+
+#blazor-error-ui a {
+    color: var(--primary);
+    text-decoration: underline;
+    margin-left: 0.5rem;
+}
+
+#blazor-error-ui .dismiss {
+    cursor: pointer;
+    position: absolute;
+    right: 1.5rem;
+    top: 0.8rem;
+    color: var(--text-muted);
+}
+
+@media (max-width: 768px) {
+    .page {
+        flex-direction: column;
+    }
+
+    .sidebar {
+        width: 100%;
+        border-right: none;
+        border-bottom: 1px solid var(--border-color);
+        height: auto;
+    }
+
+    .navbar-toggler {
+        display: block;
+    }
+
+    .content-pane {
+        padding: 1.25rem;
+    }
+}
+
+@media (min-width: 769px) {
+    .page {
+        flex-direction: row;
+    }
+
+    .sidebar {
+        width: 260px;
+        height: 100vh;
+    }
+}

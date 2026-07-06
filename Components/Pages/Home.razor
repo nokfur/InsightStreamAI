@@ -1,0 +1,156 @@
+@page "/"
+@using InsightStreamAI.Application.Repositories
+@inject IDocumentRepository DocumentRepository
+@inject IChatRepository ChatRepository
+
+<PageTitle>InsightStream AI - Portal</PageTitle>
+
+<div class="dashboard-header animate-fade">
+    <h1 class="gradient-text">InsightStream AI</h1>
+    <p class="subtitle">AI-native document intelligence and retrieval-augmented generation engine.</p>
+</div>
+
+<div class="stats-grid animate-fade">
+    <div class="glass-card stat-card">
+        <div class="stat-icon">🗂</div>
+        <div>
+            <div class="stat-value">@documentCount</div>
+            <div class="stat-label">Indexed Documents</div>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon-glow">✦</div>
+        <div>
+            <div class="stat-value">@chunkCount</div>
+            <div class="stat-label">Knowledge Chunks</div>
+        </div>
+    </div>
+    
+    <div class="glass-card stat-card">
+        <div class="stat-icon">💬</div>
+        <div>
+            <div class="stat-value">@conversationCount</div>
+            <div class="stat-label">Conversations</div>
+        </div>
+    </div>
+</div>
+
+<div class="grid-actions animate-fade">
+    <div class="glass-card action-card">
+        <div>
+            <h3>Document Hub</h3>
+            <p class="card-desc">Upload text documents. The system segmentizes your files recursively and generates local vector embeddings for lightning-fast semantic retrieval.</p>
+        </div>
+        <div class="card-footer">
+            <a href="documents" class="btn-premium">Manage Documents &nbsp;&rarr;</a>
+        </div>
+    </div>
+    
+    <div class="glass-card action-card">
+        <div>
+            <h3>AI Agent Chat</h3>
+            <p class="card-desc">Converse with the cognitive agent. It uses Semantic Kernel, local similarity search, and web integrations to retrieve and reason over your files.</p>
+        </div>
+        <div class="card-footer">
+            <a href="chat" class="btn-premium">Start Conversing &nbsp;&rarr;</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .gradient-text {
+        font-size: 3rem;
+        background: linear-gradient(to right, #ffffff 30%, #00f2fe 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.5rem;
+    }
+    
+    .subtitle {
+        color: var(--text-muted);
+        font-size: 1.1rem;
+        margin-bottom: 2.5rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 3rem;
+    }
+    
+    .stat-card {
+        padding: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }
+    
+    .stat-icon {
+        font-size: 2.25rem;
+    }
+
+    .stat-icon-glow {
+        font-size: 2.25rem;
+        color: var(--primary);
+        text-shadow: 0 0 12px var(--primary);
+    }
+    
+    .stat-value {
+        font-family: var(--font-heading);
+        font-size: 2rem;
+        font-weight: 800;
+        color: #ffffff;
+        line-height: 1.2;
+    }
+    
+    .stat-label {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    .grid-actions {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 2rem;
+    }
+    
+    .action-card {
+        padding: 2rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 240px;
+    }
+    
+    .card-desc {
+        color: var(--text-muted);
+        font-size: 0.95rem;
+        line-height: 1.6;
+        margin-top: 0.75rem;
+    }
+    
+    .card-footer {
+        margin-top: 1.5rem;
+    }
+    
+    .animate-fade {
+        animation: fadeIn 0.4s ease-out forwards;
+    }
+</style>
+
+@code {
+    private int documentCount = 0;
+    private int chunkCount = 0;
+    private int conversationCount = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        documentCount = await DocumentRepository.GetCountAsync();
+        chunkCount = await DocumentRepository.GetChunksCountAsync();
+        conversationCount = await ChatRepository.GetConversationsCountAsync();
+    }
+}
