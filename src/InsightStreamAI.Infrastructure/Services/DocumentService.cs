@@ -2,6 +2,8 @@ using InsightStreamAI.Domain.Entities;
 using InsightStreamAI.Application.Services;
 using InsightStreamAI.Application.Repositories;
 using InsightStreamAI.Infrastructure.TextSplitters;
+using UglyToad.PdfPig;
+using System.Text;
 
 namespace InsightStreamAI.Infrastructure.Services;
 
@@ -12,41 +14,77 @@ public class DocumentService(IDocumentRepository documentRepository, IEmbeddingS
         return await documentRepository.GetAllWithChunksAsync(cancellationToken);
     }
 
-    public async Task<Document> IndexDocumentAsync(string title, string content, long fileSize, CancellationToken cancellationToken = default)
+    public async Task<Document> IndexDocumentAsync(string title, byte[] fileBytes, string fileExtension, CancellationToken cancellationToken = default)
     {
         // 1. Create document entity
         var document = new Document
         {
             Title = title,
             Path = $"local://{title}",
-            FileSize = fileSize,
+            FileSize = fileBytes.Length,
             CreatedAt = DateTime.UtcNow
         };
 
-        // 2. Chunk text
-        var textChunks = TextChunker.SplitText(content, maxChunkSize: 800, overlapSize: 100);
+        var isPdf = fileExtension.Equals(".pdf", StringComparison.OrdinalIgnoreCase);
+        int chunkSequenceIndex = 0;
 
-        // 3. Generate embeddings and create chunk entities
-        for (int i = 0; i < textChunks.Count; i++)
+        if (isPdf)
         {
-            var chunkText = textChunks[i];
-            
-            // Generate embedding using the embedding service
-            var vector = await embeddingService.GenerateEmbeddingAsync(chunkText, cancellationToken);
-            
-            // Convert to byte array
-            var embeddingBytes = ConvertFloatsToBytes(vector);
-
-            var chunk = new DocumentChunk
+            // Parse PDF page-by-page using UglyToad.PdfPig
+            using (var pdf = PdfDocument.Open(fileBytes))
             {
-                DocumentId = document.Id,
-                Document = document,
-                Index = i,
-                Text = chunkText,
-                Embedding = embeddingBytes
-            };
+                foreach (var page in pdf.GetPages())
+                {
+                    var pageText = page.Text;
+                    if (string.IsNullOrWhiteSpace(pageText))
+                    {
+                        continue;
+                    }
 
-            document.Chunks.Add(chunk);
+                    var textChunks = TextChunker.SplitText(pageText, maxChunkSize: 800, overlapSize: 100);
+                    foreach (var chunkText in textChunks)
+                    {
+                        var vector = await embeddingService.GenerateEmbeddingAsync(chunkText, cancellationToken);
+                        var embeddingBytes = ConvertFloatsToBytes(vector);
+
+                        var chunk = new DocumentChunk
+                        {
+                            DocumentId = document.Id,
+                            Document = document,
+                            Index = chunkSequenceIndex++,
+                            Text = chunkText,
+                            Embedding = embeddingBytes,
+                            PageNumber = page.Number
+                        };
+
+                        document.Chunks.Add(chunk);
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Parse plain text file
+            var content = Encoding.UTF8.GetString(fileBytes);
+            var textChunks = TextChunker.SplitText(content, maxChunkSize: 800, overlapSize: 100);
+
+            foreach (var chunkText in textChunks)
+            {
+                var vector = await embeddingService.GenerateEmbeddingAsync(chunkText, cancellationToken);
+                var embeddingBytes = ConvertFloatsToBytes(vector);
+
+                var chunk = new DocumentChunk
+                {
+                    DocumentId = document.Id,
+                    Document = document,
+                    Index = chunkSequenceIndex++,
+                    Text = chunkText,
+                    Embedding = embeddingBytes,
+                    PageNumber = null // Plain text has no pages
+                };
+
+                document.Chunks.Add(chunk);
+            }
         }
 
         // 4. Save via repository

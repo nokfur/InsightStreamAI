@@ -11,4 +11,5 @@ public class DocumentChunk
     public int Index { get; set; }
     public required string Text { get; set; }
     public required byte[] Embedding { get; set; }
+    public int? PageNumber { get; set; }
 }

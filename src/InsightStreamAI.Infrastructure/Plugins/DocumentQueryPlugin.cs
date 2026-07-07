@@ -2,10 +2,11 @@ using System.ComponentModel;
 using Microsoft.SemanticKernel;
 using InsightStreamAI.Application.Repositories;
 using InsightStreamAI.Application.Services;
+using InsightStreamAI.Application.Models;
 
 namespace InsightStreamAI.Infrastructure.Plugins;
 
-public class DocumentQueryPlugin(IDocumentRepository documentRepository, IEmbeddingService embeddingService)
+public class DocumentQueryPlugin(IDocumentRepository documentRepository, IEmbeddingService embeddingService, ICitationTracker citationTracker)
 {
     [KernelFunction, Description("Queries the database for sections of uploaded documents that match a user's question.")]
     public async Task<string> QueryDocumentsAsync(
@@ -71,9 +72,25 @@ public class DocumentQueryPlugin(IDocumentRepository documentRepository, IEmbedd
                 .OrderByDescending(x => x.Score)
                 .ToList();
 
-            // 6. Format results for the LLM context
+            // Record the matched chunks in the citation tracker
+            foreach (var r in scoredChunks)
+            {
+                citationTracker.AddCitation(new ChatMessageCitation
+                {
+                    DocumentTitle = r.Chunk.Document.Title,
+                    DocumentId = r.Chunk.DocumentId,
+                    Score = r.Score,
+                    TextExcerpt = r.Chunk.Text.Length > 250 ? r.Chunk.Text.Substring(0, 250) + "..." : r.Chunk.Text,
+                    PageNumber = r.Chunk.PageNumber
+                });
+            }
+
+            // 6. Format results for the LLM context (including page numbers if available)
             var formattedResults = scoredChunks.Select(r => 
-                $"[Source Document: {r.Chunk.Document.Title}] (Relevance Score: {r.Score:P0})\n{r.Chunk.Text}");
+            {
+                var pageInfo = r.Chunk.PageNumber.HasValue ? $" (Page {r.Chunk.PageNumber})" : string.Empty;
+                return $"[Source Document: {r.Chunk.Document.Title}{pageInfo}] (Relevance Score: {r.Score:P0})\n{r.Chunk.Text}";
+            });
 
             return "Relevant document sections found:\n\n" + string.Join("\n\n---\n\n", formattedResults);
         }

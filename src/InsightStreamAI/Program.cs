@@ -73,6 +73,7 @@ builder.Services.AddScoped<IChatRepository, ChatRepository>();
 builder.Services.AddScoped<IEmbeddingService, EmbeddingService>();
 builder.Services.AddScoped<ISemanticKernelService, SemanticKernelService>();
 builder.Services.AddScoped<IDocumentService, DocumentService>();
+builder.Services.AddScoped<ICitationTracker, CitationTracker>();
 
 // Register plugins for DI
 builder.Services.AddTransient<TimePlugin>();

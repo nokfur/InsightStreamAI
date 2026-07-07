@@ -3,10 +3,12 @@
 @using InsightStreamAI.Application.Services
 @using InsightStreamAI.Application.Repositories
 @using InsightStreamAI.Application.Common
+@using InsightStreamAI.Application.Models
 @using System.Text
 @using Markdig
 @inject ISemanticKernelService SKService
 @inject IChatRepository ChatRepository
+@inject ICitationTracker CitationTracker
 @inject IJSRuntime JSRuntime
 
 <PageTitle>InsightStream AI - Agent Chat</PageTitle>
@@ -86,11 +88,41 @@
                     (msg.Content.StartsWith("Error during streaming response:") || msg.Content.StartsWith("Failed to"));
                     <div
                         class="message @(msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "message-user" : "message-assistant") @(isError ? "message-error" : "")">
-                        <div class="message-sender">@(msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "You" :
-                    "InsightStream")</div>
+                        <div class="message-header-row">
+                            <div class="message-sender">@(msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) ? "You" :
+                        "InsightStream")</div>
+                            <button class="btn-copy-message" @onclick="() => CopyMessage(msg.Id, msg.Content)" title="Copy message text">
+                                @(copiedMessageId == msg.Id ? "✔" : "📋")
+                            </button>
+                        </div>
                         <div class="message-content">
                             @((MarkupString)FormatMarkdown(msg.Content))
                         </div>
+                        @if (!msg.Role.Equals("user", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(msg.CitationsJson))
+                        {
+                            var citations = GetCitationsList(msg.CitationsJson);
+                            @if (citations != null && citations.Count > 0)
+                            {
+                                <div class="citations-container">
+                                    <div class="citations-header">Sources Used:</div>
+                                    <div class="citations-list">
+                                        @foreach (var citation in citations)
+                                        {
+                                            var pageLabel = citation.PageNumber.HasValue ? $" (Page {citation.PageNumber.Value})" : string.Empty;
+                                            var badgeId = $"cit-{msg.Id}-{citations.IndexOf(citation)}";
+                                            <div class="citation-wrapper">
+                                                <button class="citation-badge" @onclick="() => ToggleCitation(badgeId)">
+                                                    📄 @citation.DocumentTitle@pageLabel <span class="citation-score">@((citation.Score * 100).ToString("N0"))% Match</span>
+                                                </button>
+                                                <div id="@badgeId" class="citation-details" style="display: @(activeCitations.Contains(badgeId) ? "block" : "none")">
+                                                    <div class="citation-text">@citation.TextExcerpt</div>
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        }
                     </div>
                 }
 
@@ -116,6 +148,15 @@
                     </div>
                 }
             </div>
+
+            @if (isSending)
+            {
+                <div class="chat-stop-container">
+                    <button class="btn-stop-response" @onclick="StopResponding">
+                        ⏹ Stop Generating
+                    </button>
+                </div>
+            }
 
             <div class="chat-input-area">
                 <textarea @bind="userPrompt" @bind:event="oninput" @onkeydown="OnKeyDown"
@@ -431,6 +472,145 @@
         margin-top: 1rem;
     }
 
+    .citations-container {
+        margin-top: 0.75rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+        text-align: left;
+    }
+
+    .citations-header {
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        margin-bottom: 0.4rem;
+    }
+
+    .citations-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+
+    .citation-wrapper {
+        display: flex;
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .citation-badge {
+        align-self: flex-start;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid var(--border-color);
+        color: var(--text-main);
+        padding: 0.35rem 0.65rem;
+        border-radius: 8px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        font-weight: 500;
+        text-align: left;
+    }
+
+    .citation-badge:hover {
+        background: rgba(0, 242, 254, 0.08);
+        border-color: rgba(0, 242, 254, 0.3);
+        color: var(--primary);
+    }
+
+    .citation-score {
+        background: rgba(0, 242, 254, 0.10);
+        color: var(--primary);
+        padding: 0.05rem 0.3rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        font-weight: 600;
+    }
+
+    .citation-details {
+        background: rgba(0, 0, 0, 0.25);
+        border-left: 2px solid var(--primary);
+        margin-top: 0.35rem;
+        padding: 0.6rem 0.8rem;
+        border-radius: 6px;
+        animation: fadeIn 0.25s ease-out;
+    }
+
+    .citation-text {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+        line-height: 1.45;
+        font-style: italic;
+    }
+
+    .message-header-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.35rem;
+    }
+
+    .btn-copy-message {
+        background: transparent;
+        border: none;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        cursor: pointer;
+        padding: 0.1rem 0.3rem;
+        border-radius: 4px;
+        opacity: 0;
+        transition: opacity 0.2s ease, color 0.2s ease, background 0.2s ease;
+    }
+
+    .message:hover .btn-copy-message {
+        opacity: 0.8;
+    }
+
+    .btn-copy-message:hover {
+        color: var(--primary);
+        background: rgba(255, 255, 255, 0.04);
+        opacity: 1 !important;
+    }
+
+    .chat-stop-container {
+        display: flex;
+        justify-content: center;
+        margin-bottom: 0.5rem;
+        position: relative;
+        z-index: 10;
+        animation: fadeIn 0.2s ease-out;
+    }
+
+    .btn-stop-response {
+        background: rgba(239, 68, 68, 0.1);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #ef4444;
+        font-family: var(--font-heading);
+        font-size: 0.85rem;
+        font-weight: 600;
+        padding: 0.45rem 1.1rem;
+        border-radius: 20px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.2s ease;
+        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1);
+    }
+
+    .btn-stop-response:hover {
+        background: #ef4444;
+        color: #ffffff;
+        border-color: #ef4444;
+        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        transform: translateY(-1px);
+    }
+
     /* Media query for mobile layouts */
     @@media (max-width: 768px) {
         .btn-toggle-sidebar {
@@ -475,6 +655,7 @@
 </style>
 
 @code {
+    private CancellationTokenSource? cts;
     private List<ChatConversation>? conversations = null;
 
     private ChatConversation? selectedConversation = null;
@@ -619,6 +800,8 @@
 
         currentAssistantChunk.Clear();
 
+        CitationTracker.Clear();
+
         StateHasChanged();
 
 
@@ -667,15 +850,17 @@
 
         // 2. Fetch stream from SemanticKernelService
 
+        cts = new CancellationTokenSource();
+
         try
 
         {
 
-            var stream = SKService.GetStreamingResponseAsync(messages, prompt);
+            var stream = SKService.GetStreamingResponseAsync(messages, prompt, cts.Token);
 
 
 
-            await foreach (var chunk in stream)
+            await foreach (var chunk in stream.WithCancellation(cts.Token))
 
             {
 
@@ -687,35 +872,13 @@
 
             }
 
+        }
 
+        catch (OperationCanceledException)
 
-            // 3. Save assistant response to DB
+        {
 
-            var assistantResponse = currentAssistantChunk.ToString();
-
-            if (!string.IsNullOrEmpty(assistantResponse))
-
-            {
-
-                var assistantMessage = new ChatMessage
-
-                    {
-
-                        ConversationId = selectedConversation.Id,
-
-                        Role = "assistant",
-
-                        Content = assistantResponse,
-
-                        CreatedAt = DateTime.UtcNow
-
-                    };
-
-                await ChatRepository.AddMessageAsync(assistantMessage);
-
-                messages.Add(assistantMessage);
-
-            }
+            // Gracefully handled user cancellation
 
         }
 
@@ -749,9 +912,51 @@
 
         {
 
+            // 3. Save assistant response to DB (saves full or partial text before cancellation)
+
+            var assistantResponse = currentAssistantChunk.ToString();
+
+            if (!string.IsNullOrEmpty(assistantResponse) && !assistantResponse.StartsWith("Error during streaming response:"))
+
+            {
+
+                var citations = CitationTracker.GetCitations();
+
+                var citationsJson = citations.Count > 0 ? System.Text.Json.JsonSerializer.Serialize(citations) : null;
+
+
+
+                var assistantMessage = new ChatMessage
+
+                    {
+
+                        ConversationId = selectedConversation.Id,
+
+                        Role = "assistant",
+
+                        Content = assistantResponse,
+
+                        CitationsJson = citationsJson,
+
+                        CreatedAt = DateTime.UtcNow
+
+                    };
+
+                await ChatRepository.AddMessageAsync(assistantMessage);
+
+                messages.Add(assistantMessage);
+
+            }
+
+
+
             isSending = false;
 
             currentAssistantChunk.Clear();
+
+            cts?.Dispose();
+
+            cts = null;
 
             StateHasChanged();
 
@@ -821,5 +1026,55 @@
 
         return Markdown.ToHtml(text, pipeline);
 
+    }
+
+    private HashSet<string> activeCitations = new();
+
+    private void ToggleCitation(string citationId)
+    {
+        if (activeCitations.Contains(citationId))
+        {
+            activeCitations.Remove(citationId);
+        }
+        else
+        {
+            activeCitations.Add(citationId);
+        }
+        StateHasChanged();
+    }
+
+    private List<ChatMessageCitation>? GetCitationsList(string citationsJson)
+    {
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<ChatMessageCitation>>(citationsJson);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private Guid? copiedMessageId = null;
+
+    private async Task CopyMessage(Guid messageId, string content)
+    {
+        var success = await JSRuntime.InvokeAsync<bool>("copyToClipboard", content);
+        if (success)
+        {
+            copiedMessageId = messageId;
+            StateHasChanged();
+            await Task.Delay(2000);
+            if (copiedMessageId == messageId)
+            {
+                copiedMessageId = null;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private void StopResponding()
+    {
+        cts?.Cancel();
     }
 }

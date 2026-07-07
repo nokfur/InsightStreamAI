@@ -14,7 +14,7 @@
     <div class="upload-section animate-fade">
         <div class="glass-card p-4">
             <h3>Upload New Document</h3>
-            <p class="text-muted">Currently supports plain text files (.txt, .md, .csv, .json). Maximum size: 2MB.</p>
+            <p class="text-muted">Currently supports plain text files (.txt, .md, .csv, .json) and PDFs (.pdf). Maximum size: 2MB.</p>
             
             <div class="mt-4">
                 <label class="drag-drop-zone">
@@ -26,10 +26,10 @@
                     }
                     else
                     {
-                        <span class="upload-title">Click to browse or drag text file here</span>
-                        <span class="text-muted text-xs">Supported: .txt, .md, .json, .csv</span>
+                        <span class="upload-title">Click to browse or drag file here</span>
+                        <span class="text-muted text-xs">Supported: .txt, .md, .json, .csv, .pdf</span>
                     }
-                    <InputFile OnChange="OnFileChange" disabled="@isUploading" class="hidden-file-input" />
+                    <InputFile OnChange="OnFileChange" disabled="@isUploading" class="hidden-file-input" accept=".txt,.md,.json,.csv,.pdf" />
                 </label>
             </div>
             
@@ -288,17 +288,19 @@
 
             try
             {
-                // Limit to 2MB text files
-                using var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024);
-                using var reader = new StreamReader(stream);
-                var content = await reader.ReadToEndAsync();
+                // Limit to 2MB files and read into byte array
+                var buffer = new byte[file.Size];
+                using (var stream = file.OpenReadStream(maxAllowedSize: 2 * 1024 * 1024))
+                {
+                    await stream.ReadExactlyAsync(buffer);
+                }
 
-                if (string.IsNullOrWhiteSpace(content))
+                if (buffer.Length == 0)
                 {
                     throw new Exception("File is empty.");
                 }
 
-                await DocumentService.IndexDocumentAsync(file.Name, content, file.Size);
+                await DocumentService.IndexDocumentAsync(file.Name, buffer, System.IO.Path.GetExtension(file.Name));
                 await LoadDocuments();
             }
             catch (Exception ex)
