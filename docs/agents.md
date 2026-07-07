@@ -34,6 +34,7 @@ To extend the capabilities of the LLM beyond its static weights, we register thr
     3.  Calculates the **Cosine Similarity** of the vectors in memory.
     4.  Fetches full text records only for the top matched IDs via `IDocumentRepository.GetChunksByIdsAsync()`.
     5.  Returns the top 4 matched text chunks with a similarity score higher than 0.35.
+    6.  Logs matching sources (including document title, match score, page numbers if available, and text excerpts) to the `ICitationTracker` service.
 
 ### 2. `WebSearchPlugin`
 *   **Description:** Allows the agent to query DuckDuckGo for live internet context.
@@ -75,3 +76,13 @@ stateDiagram-v2
     Rendering --> Saving : Save full history to SQLite
     Saving --> Idle
 ```
+
+---
+
+## 4. Citation Tracking & UI Feedback
+
+To maintain high trustworthiness and transparency, the chat system traces exactly where the LLM gets its facts.
+*   **`ICitationTracker`:** A scoped service (`CitationTracker`) that accumulates citations during a single request lifecycle.
+*   **Database Schema:** Chat messages contain a `CitationsJson` column where the matching citations (excerpts, document titles, scores, and page numbers) are serialized and saved.
+*   **Interactive UI:** In the front-end chat interface, citations are rendered as interactive badges showing the document name and match percentage. Clicking a badge displays the exact text excerpt retrieved from the document.
+
