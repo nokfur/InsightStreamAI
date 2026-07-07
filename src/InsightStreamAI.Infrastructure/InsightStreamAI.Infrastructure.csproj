@@ -1,8 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\Application\InsightStreamAI.Application.csproj" />
-    <ProjectReference Include="..\Domain\InsightStreamAI.Domain.csproj" />
+    <ProjectReference Include="..\InsightStreamAI.Application\InsightStreamAI.Application.csproj" />
+    <ProjectReference Include="..\InsightStreamAI.Domain\InsightStreamAI.Domain.csproj" />
   </ItemGroup>
 
   <ItemGroup>
