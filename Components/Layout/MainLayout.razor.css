@@ -21,54 +21,15 @@ main {
     display: flex;
     flex-direction: column;
     flex-shrink: 0;
+    backdrop-filter: var(--glass-blur);
+    -webkit-backdrop-filter: var(--glass-blur);
 }
 
-.navbar-brand-premium {
-    font-family: var(--font-heading);
-    font-size: 1.25rem;
-    font-weight: 800;
-    color: #ffffff;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    letter-spacing: 0.05em;
-    padding: 1.5rem 1rem;
-}
-
-.logo-glow {
-    color: var(--primary);
-    text-shadow: 0 0 10px var(--primary);
-    font-size: 1.4rem;
-}
-
-.nav-link-premium {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 0.8rem 1.25rem;
-    color: var(--text-muted);
-    font-weight: 500;
-    font-size: 0.95rem;
-    border-radius: 8px;
-    margin: 0.25rem 0.75rem;
-    transition: all 0.2s ease;
-}
-
-.nav-link-premium:hover {
-    color: #ffffff;
-    background: rgba(255, 255, 255, 0.04);
-}
-
-.nav-link-premium.active {
-    color: var(--primary);
-    background: rgba(0, 242, 254, 0.06);
-    font-weight: 600;
-    box-shadow: inset 3px 0 0 var(--primary);
-}
-
-.nav-icon {
-    font-size: 1.1rem;
-    opacity: 0.8;
+/* Centered Page Containers for wide screens */
+.home-container, .documents-container {
+    max-width: 1200px;
+    margin: 0 auto;
+    width: 100%;
 }
 
 .content-pane {

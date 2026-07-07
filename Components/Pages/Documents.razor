@@ -5,97 +5,99 @@
 
 <PageTitle>InsightStream AI - Document Hub</PageTitle>
 
-<div class="header animate-fade">
-    <h1 class="gradient-title">Document Hub</h1>
-    <p class="subtitle">Upload text files to populate your AI agent's semantic knowledge base.</p>
-</div>
+<div class="documents-container">
+    <div class="header animate-fade">
+        <h1 class="gradient-title">Document Hub</h1>
+        <p class="subtitle">Upload text files to populate your AI agent's semantic knowledge base.</p>
+    </div>
 
-<div class="upload-section animate-fade">
-    <div class="glass-card p-4">
-        <h3>Upload New Document</h3>
-        <p class="text-muted">Currently supports plain text files (.txt, .md, .csv, .json). Maximum size: 2MB.</p>
-        
-        <div class="mt-4">
-            <label class="drag-drop-zone">
-                <i>📁</i>
-                @if (isUploading)
-                {
-                    <div class="spinner-border" role="status"></div>
-                    <span class="upload-status mt-2">Segmentizing & Generating Vector Embeddings...</span>
-                }
-                else
-                {
-                    <span class="upload-title">Click to browse or drag text file here</span>
-                    <span class="text-muted text-xs">Supported: .txt, .md, .json, .csv</span>
-                }
-                <InputFile OnChange="OnFileChange" disabled="@isUploading" class="hidden-file-input" />
-            </label>
+    <div class="upload-section animate-fade">
+        <div class="glass-card p-4">
+            <h3>Upload New Document</h3>
+            <p class="text-muted">Currently supports plain text files (.txt, .md, .csv, .json). Maximum size: 2MB.</p>
+            
+            <div class="mt-4">
+                <label class="drag-drop-zone">
+                    <i>📁</i>
+                    @if (isUploading)
+                    {
+                        <div class="spinner-border" role="status"></div>
+                        <span class="upload-status mt-2">Segmentizing & Generating Vector Embeddings...</span>
+                    }
+                    else
+                    {
+                        <span class="upload-title">Click to browse or drag text file here</span>
+                        <span class="text-muted text-xs">Supported: .txt, .md, .json, .csv</span>
+                    }
+                    <InputFile OnChange="OnFileChange" disabled="@isUploading" class="hidden-file-input" />
+                </label>
+            </div>
+            
+            @if (uploadError != null)
+            {
+                <div class="error-banner mt-3">
+                    ⚠️ @uploadError
+                </div>
+            }
         </div>
+    </div>
+
+    <div class="library-section mt-4 animate-fade">
+        <h2 class="section-title">Knowledge Library</h2>
         
-        @if (uploadError != null)
+        @if (documents == null)
         {
-            <div class="error-banner mt-3">
-                ⚠️ @uploadError
+            <div class="loading-state">
+                <div class="spinner-border" role="status"></div>
+                <p class="text-muted mt-2">Loading library...</p>
+            </div>
+        }
+        else if (documents.Count == 0)
+        {
+            <div class="glass-card empty-state">
+                <div class="empty-icon">🗂</div>
+                <h3>Your library is empty</h3>
+                <p class="text-muted">Upload text files above. Your local AI agent will use them to answer questions during chats.</p>
+            </div>
+        }
+        else
+        {
+            <div class="table-container glass-card">
+                <table class="library-table">
+                    <thead>
+                        <tr>
+                            <th>Document Title</th>
+                            <th>File Size</th>
+                            <th>Segments</th>
+                            <th>Indexed On</th>
+                            <th class="text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var doc in documents)
+                        {
+                            <tr>
+                                <td class="doc-title-cell">
+                                    <span class="doc-icon">📄</span>
+                                    <span class="doc-title-text" title="@doc.Title">@doc.Title</span>
+                                </td>
+                                <td>@FormatFileSize(doc.FileSize)</td>
+                                <td>
+                                    <span class="badge-chunks">@doc.Chunks.Count chunks</span>
+                                </td>
+                                <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
+                                <td class="text-right">
+                                    <button class="btn-delete" @onclick="() => DeleteDoc(doc.Id)">
+                                        Delete
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
             </div>
         }
     </div>
-</div>
-
-<div class="library-section mt-5 animate-fade">
-    <h2 class="section-title">Knowledge Library</h2>
-    
-    @if (documents == null)
-    {
-        <div class="loading-state">
-            <div class="spinner-border" role="status"></div>
-            <p class="text-muted mt-2">Loading library...</p>
-        </div>
-    }
-    else if (documents.Count == 0)
-    {
-        <div class="glass-card empty-state">
-            <div class="empty-icon">🗂</div>
-            <h3>Your library is empty</h3>
-            <p class="text-muted">Upload text files above. Your local AI agent will use them to answer questions during chats.</p>
-        </div>
-    }
-    else
-    {
-        <div class="table-container glass-card">
-            <table class="library-table">
-                <thead>
-                    <tr>
-                        <th>Document Title</th>
-                        <th>File Size</th>
-                        <th>Segments</th>
-                        <th>Indexed On</th>
-                        <th class="text-right">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach (var doc in documents)
-                    {
-                        <tr>
-                            <td class="doc-title-cell">
-                                <span class="doc-icon">📄</span>
-                                <span class="doc-title-text" title="@doc.Title">@doc.Title</span>
-                            </td>
-                            <td>@FormatFileSize(doc.FileSize)</td>
-                            <td>
-                                <span class="badge-chunks">@doc.Chunks.Count chunks</span>
-                            </td>
-                            <td>@doc.CreatedAt.ToLocalTime().ToString("g")</td>
-                            <td class="text-right">
-                                <button class="btn-delete" @onclick="() => DeleteDoc(doc.Id)">
-                                    Delete
-                                </button>
-                            </td>
-                        </tr>
-                    }
-                </tbody>
-            </table>
-        </div>
-    }
 </div>
 
 <style>
@@ -110,11 +112,15 @@
     .subtitle {
         color: var(--text-muted);
         font-size: 1rem;
-        margin-bottom: 2rem;
+        margin-bottom: 1.25rem;
     }
     
     .hidden-file-input {
         display: none;
+    }
+    
+    .drag-drop-zone {
+        padding: 1.5rem 1.5rem;
     }
     
     .upload-status {
@@ -134,12 +140,12 @@
     
     .section-title {
         font-size: 1.5rem;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
     
     .loading-state, .empty-state {
         text-align: center;
-        padding: 3rem 1.5rem;
+        padding: 2rem 1.5rem;
     }
     
     .empty-icon {
@@ -161,7 +167,7 @@
     }
     
     .library-table th, .library-table td {
-        padding: 1rem 1.25rem;
+        padding: 0.75rem 1.25rem;
         border-bottom: 1px solid var(--border-color);
     }
     
@@ -237,7 +243,7 @@
     .mt-2 { margin-top: 0.5rem; }
     .mt-3 { margin-top: 0.75rem; }
     .mt-4 { margin-top: 1rem; }
-    .mt-5 { margin-top: 2rem; }
+    .mt-5 { margin-top: 1.5rem; }
 
     .spinner-border {
         display: inline-block;
@@ -251,20 +257,6 @@
         animation: spinner-border .75s linear infinite;
     }
 
-    @@keyframes spinner-border {
-        to { transform: rotate(360deg); }
-    }
-    
-    @@keyframes pulse {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0.6; }
-    }
-    
-    @@keyframes fadeIn {
-        from { opacity: 0; transform: translateY(8px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
     .animate-fade {
         animation: fadeIn 0.4s ease-out forwards;
     }
