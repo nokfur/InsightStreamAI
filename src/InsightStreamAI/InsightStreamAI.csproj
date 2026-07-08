@@ -14,6 +14,7 @@
   <ItemGroup>
     <ProjectReference Include="..\InsightStreamAI.Application\InsightStreamAI.Application.csproj" />
     <ProjectReference Include="..\InsightStreamAI.Infrastructure\InsightStreamAI.Infrastructure.csproj" />
+    <ProjectReference Include="..\InsightStreamAI.ServiceDefaults\InsightStreamAI.ServiceDefaults.csproj" />
   </ItemGroup>
 
 </Project>

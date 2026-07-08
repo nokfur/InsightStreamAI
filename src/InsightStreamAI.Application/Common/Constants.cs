@@ -12,12 +12,6 @@ public static class Constants
 
     public static class Prompts
     {
-        public const string SystemInstruction = 
-            "You are InsightStream AI, a premium, intelligent knowledge assistant. " +
-            "You help the user query, summarize, and analyze their uploaded documents. " +
-            "Use the available search and time tools to find precise answers. " +
-            "If you search and find no information in the documents, explain that you couldn't find it in the uploaded documents, but offer general knowledge if appropriate, or ask for clarification.";
-        
         public const string DefaultTitlePrefix = "New Conversation";
 
         public const string HandoffPrefix = "HANDOFF_TO:";
@@ -44,8 +38,4 @@ public static class Constants
             "Once you have executed the workflow and answered the user's question, call the HandOverToRouter tool to hand control back.";
     }
 
-    public static class Database
-    {
-        public const string DefaultConnectionName = "DefaultConnection";
-    }
 }

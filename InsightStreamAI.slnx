@@ -3,4 +3,6 @@
   <Project Path="src/InsightStreamAI.Domain/InsightStreamAI.Domain.csproj" />
   <Project Path="src/InsightStreamAI.Application/InsightStreamAI.Application.csproj" />
   <Project Path="src/InsightStreamAI.Infrastructure/InsightStreamAI.Infrastructure.csproj" />
+  <Project Path="src/InsightStreamAI.AppHost/InsightStreamAI.AppHost.csproj" />
+  <Project Path="src/InsightStreamAI.ServiceDefaults/InsightStreamAI.ServiceDefaults.csproj" />
 </Solution>

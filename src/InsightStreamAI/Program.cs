@@ -1,4 +1,3 @@
-#pragma warning disable CS0618
 using InsightStreamAI.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.SemanticKernel;
@@ -11,9 +10,14 @@ using InsightStreamAI.Application.Models;
 using InsightStreamAI.Application.Services;
 using InsightStreamAI.Infrastructure.Services;
 using InsightStreamAI.Infrastructure.Plugins;
+using InsightStreamAI.Infrastructure;
 using AppConstants = InsightStreamAI.Application.Common.Constants;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Add service defaults and telemetry pipelines
+builder.AddServiceDefaults();
+builder.Services.AddInfrastructureTelemetry();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -21,13 +25,13 @@ builder.Services.AddRazorComponents()
 
 // Database configuration
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlite(builder.Configuration.GetConnectionString(AppConstants.Database.DefaultConnectionName)));
+    options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Bind configuration strictly and validate at startup
 var aiSettings = builder.Configuration.GetSection("AISettings").Get<AISettings>();
 if (aiSettings == null)
 {
-    throw new InvalidOperationException("AISettings section is missing in appsettings.json.");
+    throw new InvalidOperationException("AISettings section is missing.");
 }
 if (aiSettings.UseLocalServer && string.IsNullOrWhiteSpace(aiSettings.LocalEndpoint))
 {
@@ -137,6 +141,8 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+app.MapDefaultEndpoints();
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

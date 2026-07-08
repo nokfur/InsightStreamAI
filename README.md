@@ -72,29 +72,37 @@ sequenceDiagram
     *   Under **Text Embedding Model**, load `mxbai-embed-large-v1`.
     *   Click **Start Server** (hosts by default at `http://localhost:1234/v1`).
 
-### 2. Configure `appsettings.json`
-Verify the `AISettings` block in your `appsettings.json` (note that `ApiKey` is a strictly validated required setting):
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Data Source=insightstream.db"
-  },
-  "AISettings": {
-    "UseLocalServer": true,
-    "LocalEndpoint": "http://localhost:1234/v1",
-    "ChatModelId": "qwen-2.5",
-    "EmbeddingModelId": "mixedbread-ai/mxbai-embed-large-v1",
-    "ApiKey": "lm-studio"
-  }
-}
+### 2. Configure Secrets and AI Parameters via AppHost
+Since configuration is orchestrated by .NET Aspire, you do not need to configure `appsettings.json` directly in the Blazor project. Instead, store your local connection string and AI credentials in the **AppHost Project User Secrets**.
+
+Open PowerShell/command prompt, navigate to the AppHost project directory (`src/InsightStreamAI.AppHost`), and execute:
+```powershell
+# Initialize user secrets in the AppHost
+dotnet user-secrets init
+
+# Set your local connection string and AI configurations
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=insightstream.db"
+dotnet user-secrets set "AISettings:ApiKey" "sk-lm-NXDn8jQx:lqsApi2V5bC2mIabHcBR"
+dotnet user-secrets set "AISettings:ChatModelId" "qwen/qwen3.5-9b"
+dotnet user-secrets set "AISettings:EmbeddingModelId" "text-embedding-mxbai-embed-large-v1"
+dotnet user-secrets set "AISettings:LocalEndpoint" "http://localhost:1234/v1"
 ```
 
-### 3. Run the App
+*The AppHost reads these values at startup and securely maps them to environment variables for the Blazor portal. When running locally via SQLite, setting `"Data Source=insightstream.db"` is standard.*
+
+### 3. Run the App using .NET Aspire
+With .NET Aspire integrated, the project is run via the orchestrator project (`InsightStreamAI.AppHost`) which spins up the application and the Aspire Dashboard for full trace waterfalls.
+
 Open PowerShell inside `D:\Workspace\Visual Studio\InsightStreamAI` and run:
 ```powershell
-dotnet run
+dotnet run --project src/InsightStreamAI.AppHost
 ```
-The database will be automatically created on startup, and you can access the portal via the HTTPS link shown in the output (usually `https://localhost:7xxx` or `http://localhost:5xxx`).
+This command starts:
+1.  **The Blazor Web Portal** (`insightstream-ai`).
+2.  **The .NET Aspire Dashboard** (link printed in output, e.g. `http://localhost:17123`).
+
+In the dashboard, you can view real-time traces, metrics, console logs, and performance graphs for all Semantic Kernel and LLM actions.
+
 
 ---
 

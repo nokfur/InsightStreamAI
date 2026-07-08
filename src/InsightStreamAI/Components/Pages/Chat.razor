@@ -149,23 +149,23 @@
                 }
             </div>
 
-            @if (isSending)
-            {
-                <div class="chat-stop-container">
-                    <button class="btn-stop-response" @onclick="StopResponding">
-                        ⏹ Stop Generating
-                    </button>
-                </div>
-            }
-
             <div class="chat-input-area">
                 <textarea @bind="userPrompt" @bind:event="oninput" @onkeydown="OnKeyDown"
                     placeholder="Type a message or query... (Press Enter to Send)" disabled="@isSending"
                     class="chat-textarea" rows="2"></textarea>
-                <button class="btn-premium" @onclick="SendMessage"
-                    disabled="@(isSending || string.IsNullOrWhiteSpace(userPrompt))">
-                    Send
-                </button>
+                @if (isSending)
+                {
+                    <button class="btn-stop-response" @onclick="StopResponding">
+                        ⏹ Stop
+                    </button>
+                }
+                else
+                {
+                    <button class="btn-premium" @onclick="SendMessage"
+                        disabled="@(string.IsNullOrWhiteSpace(userPrompt))">
+                        Send
+                    </button>
+                }
             </div>
         }
     </div>
@@ -577,38 +577,35 @@
         opacity: 1 !important;
     }
 
-    .chat-stop-container {
-        display: flex;
-        justify-content: center;
-        margin-bottom: 0.5rem;
-        position: relative;
-        z-index: 10;
-        animation: fadeIn 0.2s ease-out;
-    }
-
     .btn-stop-response {
-        background: rgba(239, 68, 68, 0.1);
-        border: 1px solid rgba(239, 68, 68, 0.3);
-        color: #ef4444;
         font-family: var(--font-heading);
-        font-size: 0.85rem;
         font-weight: 600;
-        padding: 0.45rem 1.1rem;
-        border-radius: 20px;
+        font-size: 0.9rem;
+        letter-spacing: 0.03em;
+        padding: 0.6rem 1.4rem;
+        border-radius: 10px;
+        border: 1px solid rgba(239, 68, 68, 0.4);
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.08);
         cursor: pointer;
+        box-shadow: 0 4px 12px rgba(239, 68, 68, 0.15);
+        transition: all 0.2s ease;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        transition: all 0.2s ease;
-        box-shadow: 0 4px 15px rgba(239, 68, 68, 0.1);
+        gap: 8px;
+        white-space: nowrap;
     }
 
     .btn-stop-response:hover {
         background: #ef4444;
         color: #ffffff;
         border-color: #ef4444;
-        box-shadow: 0 4px 20px rgba(239, 68, 68, 0.3);
+        box-shadow: 0 6px 16px rgba(239, 68, 68, 0.35);
         transform: translateY(-1px);
+    }
+
+    .btn-stop-response:active {
+        transform: translateY(1px);
     }
 
     /* Media query for mobile layouts */
