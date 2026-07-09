@@ -195,3 +195,20 @@ sequenceDiagram
 - **`WorkflowApprovalManager`**: Coordinates pending approval requests, stores `TaskCompletionSource<bool>` instances, and dispatches SignalR broadcasts.
 - **`ApprovalHub`**: Real-time SignalR Hub linking frontend clicks back to the manager.
 - **`Chat (Chat.razor)`**: Connects to the hub, renders the inline confirmation card right above the text input, and dispatches responses.
+
+---
+
+## 7. Local LLM Context Isolation (History Filtering)
+
+When operating with local OpenAI-compatible models (like Qwen-9B or Llama-3), standard Semantic Kernel agent execution can result in context confusion. Local models can struggle with history that contains consecutive assistant responses or intermediate handoff coordination tokens (e.g. `HANDOFF_TO: ...`), leading to empty completions or infinite loops.
+
+To address this, the system implements a custom decorator pattern:
+
+### `HistoryFilteringChatCompletionService`
+* **Mechanism**: This class wraps the default `IChatCompletionService` implementation in the DI container.
+* **Context Isolation**: When a specialist agent (such as `DocumentResearchAgent` or `WorkspaceAutomationAgent`) executes a prompt, the decorator filters the conversation history to include only:
+  1. The system prompt of the active agent.
+  2. The initial user request.
+  3. The specific messages / execution trace relevant to that specialist's workflow.
+* **Result**: Eliminates noisy intermediate orchestration tokens, allowing the local LLM to focus strictly on its designated specialist task and return high-fidelity responses.
+

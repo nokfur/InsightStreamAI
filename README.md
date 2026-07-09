@@ -82,6 +82,7 @@ dotnet user-secrets init
 
 # Set your local connection string and AI configurations
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Data Source=insightstream.db"
+dotnet user-secrets set "AISettings:UseLocalServer" "true"
 dotnet user-secrets set "AISettings:ApiKey" "sk-lm-NXDn8jQx:lqsApi2V5bC2mIabHcBR"
 dotnet user-secrets set "AISettings:ChatModelId" "qwen/qwen3.5-9b"
 dotnet user-secrets set "AISettings:EmbeddingModelId" "text-embedding-mxbai-embed-large-v1"
