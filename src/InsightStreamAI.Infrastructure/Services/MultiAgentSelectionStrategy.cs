@@ -18,6 +18,7 @@ public class MultiAgentSelectionStrategy : SelectionStrategy
         IReadOnlyList<ChatMessageContent> history, 
         CancellationToken cancellationToken = default)
     {
+
         // Find the index of the user's latest prompt to isolate the current turn's messaging history.
         int lastUserIndex = history.Count - 1;
         while (lastUserIndex >= 0 && history[lastUserIndex].Role != AuthorRole.User)
@@ -32,7 +33,11 @@ public class MultiAgentSelectionStrategy : SelectionStrategy
         // because the handoff command will be populated inside a FunctionResultContent item.
         var texts = history.Skip(startIndex)
             .SelectMany(msg => msg.Items
-                .Select(i => i.ToString())
+                .Select(i => i switch
+                {
+                    FunctionResultContent fnResult => fnResult.Result?.ToString(),
+                    _ => i.ToString()
+                })
                 .Prepend(msg.Content))
             .Where(t => !string.IsNullOrEmpty(t));
 

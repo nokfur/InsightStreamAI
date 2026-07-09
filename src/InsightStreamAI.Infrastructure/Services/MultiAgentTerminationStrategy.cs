@@ -18,6 +18,7 @@ public class MultiAgentTerminationStrategy : TerminationStrategy
         IReadOnlyList<ChatMessageContent> history, 
         CancellationToken cancellationToken)
     {
+
         var lastMessage = history.LastOrDefault();
         if (lastMessage == null)
         {
@@ -39,7 +40,11 @@ public class MultiAgentTerminationStrategy : TerminationStrategy
             // Extract all text chunks generated in the current execution turn (message body + content items).
             var texts = history.Skip(startIndex)
                 .SelectMany(msg => msg.Items
-                    .Select(i => i.ToString())
+                    .Select(i => i switch
+                    {
+                        FunctionResultContent fnResult => fnResult.Result?.ToString(),
+                        _ => i.ToString()
+                    })
                     .Prepend(msg.Content))
                 .Where(t => !string.IsNullOrEmpty(t));
 

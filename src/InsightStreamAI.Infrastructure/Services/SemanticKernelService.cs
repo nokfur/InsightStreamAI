@@ -7,7 +7,10 @@ using InsightStreamAI.Domain.Entities;
 using InsightStreamAI.Application.Services;
 using InsightStreamAI.Application.Common;
 using InsightStreamAI.Infrastructure.Plugins;
+using InsightStreamAI.Application.Models;
+using InsightStreamAI.Application.Exceptions;
 using System.Runtime.CompilerServices;
+
 
 namespace InsightStreamAI.Infrastructure.Services;
 
@@ -15,28 +18,44 @@ public class SemanticKernelService(
     Kernel kernel,
     TimePlugin timePlugin,
     DocumentQueryPlugin documentQueryPlugin,
-    WebSearchPlugin webSearchPlugin) : ISemanticKernelService
+    WebSearchPlugin webSearchPlugin,
+    IWorkflowApprovalManager approvalManager,
+    AgentSessionContext sessionContext,
+    IFunctionInvocationFilter approvalFilter) : ISemanticKernelService
 {
     public async IAsyncEnumerable<string> GetStreamingResponseAsync(
         List<ChatMessage> conversationHistory, 
         string userPrompt, 
         [EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
+        var conversationId = conversationHistory.FirstOrDefault()?.ConversationId ?? Guid.Empty;
+        if (conversationId != Guid.Empty)
+        {
+            sessionContext.ConversationId = conversationId;
+            sessionContext.ApprovedSignatures.Clear();
+            approvalManager.SetStatus(conversationId, WorkflowStatus.Running);
+        }
+
+        try
+        {
         // 1. Create shallow cloned kernels with designated plugin scoping
         var routingKernel = kernel.Clone();
         routingKernel.Plugins.Clear();
         routingKernel.Plugins.AddFromObject(new HandoffPlugin());
+        routingKernel.FunctionInvocationFilters.Add(approvalFilter);
 
         var documentResearchKernel = kernel.Clone();
         documentResearchKernel.Plugins.Clear();
         documentResearchKernel.Plugins.AddFromObject(documentQueryPlugin);
         documentResearchKernel.Plugins.AddFromObject(new HandoffPlugin());
+        documentResearchKernel.FunctionInvocationFilters.Add(approvalFilter);
 
         var workspaceAutomationKernel = kernel.Clone();
         workspaceAutomationKernel.Plugins.Clear();
         workspaceAutomationKernel.Plugins.AddFromObject(webSearchPlugin);
         workspaceAutomationKernel.Plugins.AddFromObject(timePlugin);
         workspaceAutomationKernel.Plugins.AddFromObject(new HandoffPlugin());
+        workspaceAutomationKernel.FunctionInvocationFilters.Add(approvalFilter);
 
         // 2. Define specialized agents
         var routerAgent = new ChatCompletionAgent
@@ -89,9 +108,6 @@ public class SemanticKernelService(
             });
         }
 
-        // Add user prompt
-        chat.AddChatMessage(new ChatMessageContent(AuthorRole.User, userPrompt));
-
         // 5. Invoke execution and stream output
         IAsyncEnumerable<StreamingChatMessageContent>? stream = null;
         string? errorMessage = null;
@@ -123,6 +139,14 @@ public class SemanticKernelService(
                     }
                     yield return chunk.Content;
                 }
+            }
+        }
+        }
+        finally
+        {
+            if (conversationId != Guid.Empty)
+            {
+                approvalManager.SetStatus(conversationId, WorkflowStatus.Idle);
             }
         }
     }

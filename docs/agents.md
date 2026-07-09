@@ -107,3 +107,91 @@ stateDiagram-v2
 ## 5. Citations Tracking
 - Matching document excerpts, source document names, match percentages, and page numbers are captured via the `ICitationTracker` during search.
 - Citations are saved to the `CitationsJson` database column and rendered as clickable source badges in the Blazor UI.
+
+---
+
+## 6. Human-in-the-Loop (HITL) Guardrail Pattern
+
+To prevent autonomous or destructive tool execution (such as database updates, system tasks, or expensive automation routines) from executing blindly, **InsightStream AI** implements a strict, real-time Human-in-the-Loop approval circuit.
+
+### Dynamic Execution Interception
+1. **RequiresApproval Attribute**: Any plugin method decorated with the `[RequiresApproval]` attribute is automatically queued for approval.
+2. **Configuration-driven Interception**: In `appsettings.json`, specific function names can be declared under `WorkflowApprovalSettings:RequiredFunctions` (e.g. `SearchAsync`).
+3. **Suffix-Insensitive Name Normalization**: C# methods ending in `"Async"` have their suffix stripped at runtime by Semantic Kernel. The approval matching normalizes function names by stripping the `"Async"` suffix before checking both configuration and execution targets.
+4. **Turn-Based Caching & Deduplication**: To avoid asking the user to approve the same tool multiple times during a single request turn, the system tracks approved signatures (Function Name + JSON-serialized arguments) in `AgentSessionContext.ApprovedSignatures`. If a matching signature has already been approved during the current active turn, it is auto-approved without prompting the user.
+
+### End-to-End Coordination Lifecycle
+
+The diagram below details the coordination flow between the background execution agent thread and the Blazor client using ASP.NET Core SignalR and the `TaskCompletionSource<T>` pattern.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User as User (End User)
+    participant UI as Blazor Chat Component
+    participant SKService as SemanticKernelService
+    participant SK as Semantic Kernel Agent
+    participant Filter as WorkflowApprovalFilter
+    participant Mgr as WorkflowApprovalManager
+    participant Hub as ApprovalHub
+
+    User->>UI: Types Prompt & Presses Enter
+    UI->>UI: Set isSending = true
+    UI->>SKService: Call GetStreamingResponseAsync(prompt)
+    activate SKService
+    
+    SKService->>Mgr: SetStatus(Running)
+    SKService->>SK: chat.InvokeStreamingAsync()
+    activate SK
+    
+    SK->>Filter: Invokes Function (e.g. SearchAsync)
+    activate Filter
+    
+    Note over Filter: Check Turn Cache (ApprovedSignatures)<br/>If matches, auto-approve & skip prompt
+    
+    Filter->>Mgr: RequestApprovalAsync(conversationId, fn, args)
+    activate Mgr
+    Mgr->>Mgr: Set Status = PendingApproval
+    Mgr->>Mgr: Create TaskCompletionSource<bool> (tcs)
+    
+    Mgr->>Hub: Broadcast ReceiveApprovalRequest(args)
+    Hub->>UI: ReceiveApprovalRequest Event
+    UI->>UI: Show IDE-Style Inline Approval Card
+    Note over Filter, Mgr: Halted: await tcs.Task (non-blocking yield)
+    
+    rect rgb(30, 40, 50)
+        Note over User, UI: Interaction Phase
+        User->>UI: Clicks Approve or Deny
+        UI->>Hub: Send RespondToApproval(approved)
+        Hub->>Mgr: RespondToApproval(approved)
+        Mgr->>Mgr: tcs.TrySetResult(approved)
+    end
+
+    Mgr-->>Filter: Returns approved (bool)
+    deactivate Mgr
+
+    alt Approved
+        Filter->>SK: await next(context) (Execute Tool)
+        SK-->>Filter: Tool Result
+        Filter-->>SK: Continue Workflow
+        SKService-->>UI: Yield streaming text chunks
+        UI->>UI: Render text to chat
+    else Denied
+        Filter->>Filter: Throw ApprovalDeniedException
+        deactivate Filter
+        SKService->>SKService: Catch ApprovalDeniedException
+        deactivate SK
+        SKService-->>UI: Yield "Workflow Cancelled" error chunk
+        SKService->>Mgr: SetStatus(Idle)
+        deactivate SKService
+        UI->>UI: Render cancellation warning
+        UI->>UI: Set isSending = false
+    end
+```
+
+### Components
+- **`AgentSessionContext`**: Tracks the active conversation ID and stores approved signature IDs (`ApprovedSignatures`) for the current turn.
+- **`WorkflowApprovalFilter`**: Intercepts SK function invocations, checking turn caches and pausing execution asynchronously if approval is required.
+- **`WorkflowApprovalManager`**: Coordinates pending approval requests, stores `TaskCompletionSource<bool>` instances, and dispatches SignalR broadcasts.
+- **`ApprovalHub`**: Real-time SignalR Hub linking frontend clicks back to the manager.
+- **`Chat (Chat.razor)`**: Connects to the hub, renders the inline confirmation card right above the text input, and dispatches responses.

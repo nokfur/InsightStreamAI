@@ -38,4 +38,11 @@ public static class Constants
             "Once you have executed the workflow and answered the user's question, call the HandOverToRouter tool to hand control back.";
     }
 
+    public static class WorkflowApproval
+    {
+        public const string HubRoute = "/approvalHub";
+        public const string ConfigurationSection = "WorkflowApprovalSettings:RequiredFunctions";
+        public const string ReceiveApprovalRequestEvent = "ReceiveApprovalRequest";
+        public const string RespondToApprovalMethod = "RespondToApproval";
+    }
 }
