@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Text.RegularExpressions;
 using Microsoft.SemanticKernel;
 using InsightStreamAI.Application.Common;
+using InsightStreamAI.Application.Services;
 using Microsoft.Extensions.Logging;
 
 namespace InsightStreamAI.Infrastructure.Plugins;
@@ -10,6 +11,7 @@ namespace InsightStreamAI.Infrastructure.Plugins;
 public class WebSearchPlugin(IHttpClientFactory httpClientFactory, ILogger<WebSearchPlugin> logger)
 {
     [KernelFunction, Description("Searches the web for current information on a given query.")]
+    [RequiresApproval]
     public async Task<string> SearchAsync([Description("The search query")] string query, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(query))

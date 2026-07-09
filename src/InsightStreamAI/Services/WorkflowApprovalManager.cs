@@ -13,12 +13,8 @@ using InsightStreamAI.Application.Common;
 
 namespace InsightStreamAI.Services;
 
-public class WorkflowApprovalManager(
-    IHubContext<ApprovalHub> hubContext, 
-    IConfiguration configuration) : IWorkflowApprovalManager
+public class WorkflowApprovalManager(IHubContext<ApprovalHub> hubContext) : IWorkflowApprovalManager
 {
-    private readonly List<string> _requiredFunctions = configuration.GetSection(Constants.WorkflowApproval.ConfigurationSection).Get<List<string>>() ?? new List<string>();
-    
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<bool>> _pendingApprovals = new();
     private readonly ConcurrentDictionary<Guid, WorkflowStatus> _statuses = new();
     private readonly ConcurrentDictionary<Guid, ApprovalRequest> _pendingRequests = new();
@@ -82,22 +78,5 @@ public class WorkflowApprovalManager(
     public ApprovalRequest? GetPendingRequest(Guid conversationId)
     {
         return _pendingRequests.TryGetValue(conversationId, out var request) ? request : null;
-    }
-
-    public bool IsFunctionApprovalRequired(string functionName)
-    {
-        if (string.IsNullOrWhiteSpace(functionName)) return false;
-        
-        string cleanFunctionName = functionName.EndsWith("Async", StringComparison.OrdinalIgnoreCase) 
-            ? functionName.Substring(0, functionName.Length - 5) 
-            : functionName;
-
-        return _requiredFunctions.Any(fn => 
-        {
-            string cleanFn = fn.EndsWith("Async", StringComparison.OrdinalIgnoreCase) 
-                ? fn.Substring(0, fn.Length - 5) 
-                : fn;
-            return cleanFn.Equals(cleanFunctionName, StringComparison.OrdinalIgnoreCase);
-        });
     }
 }

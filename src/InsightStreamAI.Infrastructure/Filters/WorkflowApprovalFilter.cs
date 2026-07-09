@@ -19,26 +19,26 @@ public class WorkflowApprovalFilter(
 
         // Check if approval is required:
         // 1. By presence of [RequiresApproval] attribute on the underlying method
-        // 2. By config match (configured in appsettings.json, checked via the manager)
         bool requiresApproval = false;
 
         // Check custom attribute using reflection on target method to bypass the internal visibility of KernelFunctionFromMethod
-        var methodInfoProp = context.Function.GetType().GetProperty("MethodInfo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        // In modern Semantic Kernel, the property is named "UnderlyingMethod", falling back to "MethodInfo" for older versions
+        var methodInfoProp = context.Function.GetType().GetProperty("UnderlyingMethod", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            ?? context.Function.GetType().GetProperty("MethodInfo", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+
         var methodInfo = methodInfoProp?.GetValue(context.Function) as MethodInfo;
+
         if (methodInfo != null && methodInfo.GetCustomAttributes(typeof(RequiresApprovalAttribute), true).Any())
         {
             requiresApproval = true;
         }
 
-        // Check if the function name is explicitly marked for approval in the manager config
-        if (!requiresApproval && conversationId != Guid.Empty)
-        {
-            requiresApproval = approvalManager.IsFunctionApprovalRequired(functionName);
-        }
-
         if (requiresApproval && conversationId != Guid.Empty)
         {
-            var arguments = context.Arguments.ToDictionary(k => k.Key, v => v.Value);
+            // Filter out non-serializable arguments like CancellationToken
+            var arguments = context.Arguments
+                .Where(kvp => kvp.Value is not CancellationToken)
+                .ToDictionary(k => k.Key, v => v.Value);
             var argumentsJson = System.Text.Json.JsonSerializer.Serialize(arguments);
             var signature = $"{functionName}:{argumentsJson}";
 

@@ -115,10 +115,8 @@ stateDiagram-v2
 To prevent autonomous or destructive tool execution (such as database updates, system tasks, or expensive automation routines) from executing blindly, **InsightStream AI** implements a strict, real-time Human-in-the-Loop approval circuit.
 
 ### Dynamic Execution Interception
-1. **RequiresApproval Attribute**: Any plugin method decorated with the `[RequiresApproval]` attribute is automatically queued for approval.
-2. **Configuration-driven Interception**: In `appsettings.json`, specific function names can be declared under `WorkflowApprovalSettings:RequiredFunctions` (e.g. `SearchAsync`).
-3. **Suffix-Insensitive Name Normalization**: C# methods ending in `"Async"` have their suffix stripped at runtime by Semantic Kernel. The approval matching normalizes function names by stripping the `"Async"` suffix before checking both configuration and execution targets.
-4. **Turn-Based Caching & Deduplication**: To avoid asking the user to approve the same tool multiple times during a single request turn, the system tracks approved signatures (Function Name + JSON-serialized arguments) in `AgentSessionContext.ApprovedSignatures`. If a matching signature has already been approved during the current active turn, it is auto-approved without prompting the user.
+1. **RequiresApproval Attribute**: Any plugin method decorated with the `[RequiresApproval]` attribute is automatically intercepted and queued for approval.
+2. **Turn-Based Caching & Deduplication**: To avoid asking the user to approve the same tool multiple times during a single request turn, the system tracks approved signatures (Function Name + JSON-serialized arguments) in `AgentSessionContext.ApprovedSignatures`. If a matching signature has already been approved during the current active turn, it is auto-approved without prompting the user.
 
 ### End-to-End Coordination Lifecycle
 

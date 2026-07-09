@@ -41,7 +41,6 @@ public static class Constants
     public static class WorkflowApproval
     {
         public const string HubRoute = "/approvalHub";
-        public const string ConfigurationSection = "WorkflowApprovalSettings:RequiredFunctions";
         public const string ReceiveApprovalRequestEvent = "ReceiveApprovalRequest";
         public const string RespondToApprovalMethod = "RespondToApproval";
     }

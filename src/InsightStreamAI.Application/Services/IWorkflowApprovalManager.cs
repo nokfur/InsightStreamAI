@@ -12,5 +12,4 @@ public interface IWorkflowApprovalManager
     WorkflowStatus GetStatus(Guid conversationId);
     void SetStatus(Guid conversationId, WorkflowStatus status);
     ApprovalRequest? GetPendingRequest(Guid conversationId);
-    bool IsFunctionApprovalRequired(string functionName);
 }
